@@ -9,7 +9,6 @@ import org.janusgraph.example.GraphOfTheGodsFactory;
 
 
 import java.util.List;
-import java.util.Map;
 
 public class connect {
 

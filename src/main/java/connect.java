@@ -1,3 +1,5 @@
+import org.apache.tinkerpop.gremlin.process.traversal.Path;
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.janusgraph.core.JanusGraph;
@@ -5,35 +7,66 @@ import org.janusgraph.core.JanusGraphFactory;
 import org.janusgraph.core.JanusGraphVertex;
 
 
-
+import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
+
+import static org.apache.tinkerpop.gremlin.groovy.jsr223.dsl.credential.__.*;
+
 
 public class connect {
     public static void main(String[] args) throws Exception {
         JanusGraph graph = JanusGraphFactory.open("src/conf/remote.properties");
-        System.out.println(graph.toString());
-        JanusGraphVertex V1 = graph.addVertex();
-        V1.property("name", "V1");
-        JanusGraphVertex V2 = graph.addVertex();
-        V2.property("name", "V2");
-        JanusGraphVertex V3 = graph.addVertex();
-        V3.property("name", "V3");
+        graphDefinition G = readFile("datasets/simpleSanityTests/simpleGraph");
+        GraphTraversalSource TS = graph.traversal();
+        HashSet<Integer> vertices = new HashSet<>();
+        try {
+            JanusGraphVertex root = graph.addVertex("name",Integer.toString(G.root));
+            graph.makeRoot(root);
+            vertices.add(G.root);
 
-        JanusGraphVertex V4 = graph.addVertex();
-        V4.property("name", "V4");
+            for (int source : G.edges.keySet()) {
+                for (int target : G.edges.get(source)) {
+                    if (!vertices.contains(source)) {
+                        graph.addVertex("name", Integer.toString(source));
+                        vertices.add(source);
+                    }
+                    if (!vertices.contains(target)) {
+                        graph.addVertex("name",Integer.toString(target));
+                        vertices.add(target);
+                    }
+                    try {
+                        Vertex V1 = TS.V().has("name",Integer.toString(source)).next();
+                        Vertex V2 = TS.V().has("name",Integer.toString(target)).next();
+                        V1.addEdge("simple edge", V2);
+                    } catch (Exception e) {
+                        System.out.println("Create Edge failed for " + source + " -> " + target + " Message: " + e);
+                    }
+                }
+            }
 
 
-        V1.addEdge("simple edge",V2);
-        V2.addEdge("simple edge",V3);
-        V3.addEdge("simple edge",V4);
+            List<Path> paths = TS.V().has("name", "0").repeat(out()).until(has("name", "2")).path().toList();
+            for(Path p :paths){
+                System.out.println(p);
+            }
 
-        graph.tx().commit();
+            System.out.println("");
+            //TODO: Should we allow the graph to be unstable until the transaction commits?
+            graph.tx().commit();
+        }catch (Exception e){
+            e.printStackTrace();
+        } finally {
+            graph.close();
 
-        GraphTraversalSource G = graph.traversal();
-        Vertex v = G.V().has("name", "V1").next();
+        }
+    }
 
-        System.out.println(v.property("name").toString());
-        graph.close();
+
+    public static graphDefinition readFile(String filePath) throws IOException {
+        testUtils testInstance = new testUtils();
+        graphDefinition gdef = testInstance.createEdgeMap(filePath, ",");
+        return gdef;
     }
 }
 

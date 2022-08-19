@@ -17,14 +17,10 @@ import static org.apache.tinkerpop.gremlin.groovy.jsr223.dsl.credential.__.*;
 public class connect {
     public static void main(String[] args) throws Exception {
         JanusGraph graph = JanusGraphFactory.open("src/conf/remote.properties");
-        graphDefinition G = readFile("datasets/simpleSanityTests/simpleGraph");
-        GraphTraversalSource TS = graph.traversal();
-        HashSet<Integer> vertices = new HashSet<>();
-        try {
-            JanusGraphVertex root = graph.addVertex("name",Integer.toString(G.root));
-            graph.makeRoot(root);
-            vertices.add(G.root);
-
+        try (graph) {
+            graphDefinition G = readFile("datasets/simpleSanityTests/simpleGraph");
+            GraphTraversalSource TS = graph.traversal();
+            HashSet<Integer> vertices = new HashSet<>();
             for (int source : G.edges.keySet()) {
                 for (int target : G.edges.get(source)) {
                     if (!vertices.contains(source)) {
@@ -32,12 +28,12 @@ public class connect {
                         vertices.add(source);
                     }
                     if (!vertices.contains(target)) {
-                        graph.addVertex("name",Integer.toString(target));
+                        graph.addVertex("name", Integer.toString(target));
                         vertices.add(target);
                     }
                     try {
-                        Vertex V1 = TS.V().has("name",Integer.toString(source)).next();
-                        Vertex V2 = TS.V().has("name",Integer.toString(target)).next();
+                        Vertex V1 = TS.V().has("name", Integer.toString(source)).next();
+                        Vertex V2 = TS.V().has("name", Integer.toString(target)).next();
                         V1.addEdge("simple edge", V2);
                     } catch (Exception e) {
                         System.out.println("Create Edge failed for " + source + " -> " + target + " Message: " + e);
@@ -47,18 +43,14 @@ public class connect {
 
 
             List<Path> paths = TS.V().has("name", "0").repeat(out()).until(has("name", "2")).path().toList();
-            for(Path p :paths){
+            for (Path p : paths) {
                 System.out.println(p);
             }
 
             System.out.println("");
-            //TODO: Should we allow the graph to be unstable until the transaction commits?
             graph.tx().commit();
-        }catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
-        } finally {
-            graph.close();
-
         }
     }
 
